@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>消費紀錄 // EXPENSE LOG</title>
+  <meta name="description" content="信用卡消費紀錄查詢 — 漫畫風格戰鬥面板" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+TC:wght@400;500;700;900&family=Orbitron:wght@700;900&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <!-- Manga background decorations -->
+  <div class="bg-deco">
+    <div class="speed-lines"></div>
+    <div class="halftone-overlay"></div>
+    <div class="geo-block geo-1"></div>
+    <div class="geo-block geo-2"></div>
+    <div class="geo-block geo-3"></div>
+  </div>
+
+  <div id="app">
+
+    <!-- ======== HEADER ======== -->
+    <header class="app-header">
+      <div class="header-bg-accent"></div>
+      <div class="header-inner">
+        <div class="header-title">
+          <div class="title-icon-wrap">
+            <span class="title-icon">⚡</span>
+          </div>
+          <div class="title-text-group">
+            <h1 class="title-main">消費紀錄</h1>
+            <span class="title-sub">EXPENSE LOG</span>
+          </div>
+        </div>
+        <button id="btn-refresh" class="btn-refresh" title="同步資料">
+          <svg id="refresh-icon" class="refresh-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5">
+            <polyline points="23 4 23 10 17 10" />
+            <polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+          <span class="btn-refresh-label">SYNC</span>
+        </button>
+      </div>
+    </header>
+
+
+
+    <!-- ======== MONTH SWITCHER ======== -->
+    <div class="month-switcher-wrap">
+      <div class="month-switcher">
+        <button id="btn-prev-month" class="btn-month btn-month-prev" title="上個月">
+          <span class="btn-month-arrow">◀</span>
+          <span class="btn-month-text">PREV</span>
+        </button>
+        <div class="month-display">
+          <span class="month-deco-line left"></span>
+          <span id="month-label" class="month-label">2026年4月</span>
+          <span class="month-deco-line right"></span>
+        </div>
+        <button id="btn-next-month" class="btn-month btn-month-next" title="下個月">
+          <span class="btn-month-text">NEXT</span>
+          <span class="btn-month-arrow">▶</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ======== SUMMARY PANEL ======== -->
+    <section class="summary-section" aria-label="本月摘要">
+      <div class="summary-panel">
+        <div class="panel-corner tl"></div>
+        <div class="panel-corner tr"></div>
+        <div class="panel-corner bl"></div>
+        <div class="panel-corner br"></div>
+
+        <div class="summary-grid">
+          <div class="summary-card summary-amount-card">
+            <div class="summary-card-inner">
+              <p class="summary-label">TOTAL<span class="label-jp">総消費</span></p>
+              <p id="total-amount" class="summary-value amount-value">—</p>
+            </div>
+            <div class="card-accent-stripe"></div>
+          </div>
+
+          <div class="summary-divider">
+            <span class="divider-bolt">⬥</span>
+          </div>
+
+          <div class="summary-card summary-count-card">
+            <div class="summary-card-inner">
+              <p class="summary-label">COUNT<span class="label-jp">取引数</span></p>
+              <p id="total-count" class="summary-value count-value">—</p>
+            </div>
+            <div class="card-accent-stripe stripe-alt"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="summary-sync">
+        <span class="sync-dot"></span>
+        <span class="sync-label">LAST SYNC //</span>
+        <span id="last-sync" class="sync-time">—</span>
+      </div>
+    </section>
+
+    <!-- ======== TRANSACTION LIST ======== -->
+    <section class="txn-section" aria-label="交易列表">
+
+      <div id="txn-status" class="txn-status hidden">
+        <div class="status-icon-wrap">
+          <span class="status-icon-char">?!</span>
+        </div>
+        <p id="status-message" class="status-message">查無資料</p>
+        <p id="status-sub" class="status-sub"></p>
+      </div>
+
+      <ul id="txn-list" class="txn-list" role="list"></ul>
+    </section>
+
+    <!-- ======== LOADING OVERLAY ======== -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+      <div class="loading-content">
+        <div class="loading-spinner">
+          <div class="spinner-ring"></div>
+          <span class="spinner-text">⚡</span>
+        </div>
+        <p class="loading-label">LOADING...</p>
+        <p class="loading-sub">データ読み込み中</p>
+      </div>
+    </div>
+
+    <!-- ======== ERROR TOAST ======== -->
+    <div id="error-toast" class="error-toast hidden" role="alert">
+      <span class="toast-icon">💥</span>
+      <span id="error-msg" class="toast-msg">載入失敗，請稍後再試</span>
+    </div>
+
+    <!-- ======== EDIT MODAL ======== -->
+    <div id="edit-modal" class="edit-modal hidden" role="dialog" aria-labelledby="modal-title">
+      <div class="modal-backdrop"></div>
+      <div class="modal-container anim-pop-in">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <div id="modal-icon-preview" class="modal-icon-preview">💳</div>
+            <h2 id="modal-title" class="modal-title">編輯分錄 // EDIT</h2>
+          </div>
+          <button id="btn-modal-close" class="btn-modal-close">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="input-group">
+            <label class="input-label" for="edit-merchant">店家名稱 / MERCHANT</label>
+            <input type="text" id="edit-merchant" class="manga-input" placeholder="輸入商家名稱...">
+          </div>
+
+          <div class="input-row">
+            <div class="input-group flex-1">
+              <label class="input-label" for="edit-amount">金額 / AMOUNT</label>
+              <input type="number" id="edit-amount" class="manga-input" placeholder="0.00">
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">圖示選擇 / ICON SELECTOR</label>
+            <div id="icon-grid" class="icon-grid">
+              <!-- Icons will be injected via JS -->
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="edit-note">備註 / NOTE</label>
+            <textarea id="edit-note" class="manga-input manga-textarea" rows="2" placeholder="寫點什麼..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="btn-edit-cancel" class="btn-manga-secondary">CANCEL</button>
+          <button id="btn-edit-save" class="btn-manga-primary">SAVE TRANSACTION</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
