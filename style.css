@@ -246,6 +246,47 @@ body {
 }
 
 /* ================================================================
+   FILTER BAR
+   ================================================================ */
+.filter-wrap {
+  padding: 0 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.filter-row {
+  display: flex;
+  gap: 8px;
+}
+.filter-select, .filter-input {
+  background: var(--bg-card);
+  border: var(--border-comic);
+  color: var(--text-white);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 10px;
+  border-radius: 4px;
+  outline: none;
+  box-shadow: 2px 2px 0 #000;
+  transition: all var(--transition);
+  width: 100%;
+}
+.filter-select {
+  flex: 1;
+}
+.filter-select:focus, .filter-input:focus {
+  border-color: var(--neon-cyan);
+  box-shadow: 2px 2px 0 var(--neon-cyan);
+}
+.filter-input {
+  flex: 2;
+}
+.filter-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* ================================================================
    MONTH SWITCHER — Chapter / stage select
    ================================================================ */
 .month-switcher-wrap {
@@ -498,11 +539,10 @@ body {
   background: var(--bg-card);
   border: var(--border-thick);
   box-shadow: var(--shadow-comic);
-  padding: 12px 14px;
+  padding: 14px 14px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 14px;
   cursor: default;
   transition: all var(--transition);
   position: relative;
@@ -582,11 +622,11 @@ body {
 }
 
 .txn-left {
+  width: 44px;
+  flex-shrink: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  flex: 1;
-  min-width: 0;
 }
 
 /* Icon — manga badge / sticker */
@@ -612,12 +652,12 @@ body {
   border: 1px solid rgba(168,85,247,0.2);
 }
 
-.txn-main {
+.txn-center {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .txn-merchant {
@@ -633,9 +673,25 @@ body {
 
 .txn-meta {
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+  -webkit-overflow-scrolling: touch; /* iOS 順暢滑動 */
+}
+
+/* 隱藏 Chrome/Safari 捲軸 */
+.txn-meta::-webkit-scrollbar {
+  display: none;
+}
+
+.txn-meta > * {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .txn-date {
@@ -703,8 +759,13 @@ body {
 
 /* Amount — battle power number */
 .txn-right {
-  text-align: right;
+  width: 95px;
   flex-shrink: 0;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
 }
 
 .txn-amount {
@@ -712,7 +773,6 @@ body {
   font-size: 18px;
   font-weight: 900;
   letter-spacing: 0.5px;
-  /* 俐落的單向陰影，避免發糊 */
   text-shadow: 1.5px 1.5px 0 #000;
   white-space: nowrap;
   -webkit-font-smoothing: antialiased;
@@ -728,7 +788,34 @@ body {
   font-weight: 700;
   color: var(--text-muted);
   letter-spacing: 2px;
-  margin-top: 2px;
+}
+
+/* Edit button - absolute positioning */
+.btn-txn-edit {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-panel);
+  border: 1px solid var(--neon-purple);
+  color: var(--text-white);
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  z-index: 5;
+  opacity: 0.5;
+  transition: all var(--transition);
+}
+
+.btn-txn-edit:hover {
+  opacity: 1;
+  background: var(--neon-purple);
+  color: #fff;
+  transform: scale(1.1);
 }
 
 /* ================================================================

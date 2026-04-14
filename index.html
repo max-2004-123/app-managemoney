@@ -6,6 +6,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>消費紀錄 // EXPENSE LOG</title>
   <meta name="description" content="信用卡消費紀錄查詢 — 漫畫風格戰鬥面板" />
+
+  <!-- PWA & Favicon -->
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f0f14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -69,6 +78,33 @@
           <span class="btn-month-text">NEXT</span>
           <span class="btn-month-arrow">▶</span>
         </button>
+      </div>
+    </div>
+    <!-- ======== FILTER BAR ======== -->
+    <div class="filter-wrap">
+      <div class="filter-row">
+        <select id="filter-category" class="filter-select">
+          <option value="ALL">全部分類</option>
+          <option value="購物">購物</option>
+          <option value="餐飲">餐飲</option>
+          <option value="交通">交通</option>
+          <option value="訂閱">訂閱</option>
+          <option value="醫療">醫療</option>
+          <option value="學習">學習</option>
+          <option value="娛樂">娛樂</option>
+          <option value="帳單">帳單</option>
+          <option value="網購">網購</option>
+          <option value="運動">運動</option>
+          <option value="其他">其他</option>
+        </select>
+        <select id="filter-type" class="filter-select">
+          <option value="ALL">全部類型</option>
+          <option value="expense">支出</option>
+          <option value="refund">退款</option>
+        </select>
+      </div>
+      <div class="filter-row">
+        <input type="text" id="filter-keyword" class="filter-input" placeholder="搜尋店家或備註...">
       </div>
     </div>
 

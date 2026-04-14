@@ -52,6 +52,10 @@ let state = {
   editingTxnIndex: -1, // Currently editing transaction index in state.allData
   selectedIcon: null,  // Currently selected custom icon in modal
   DEBUG_MODE: false,    // [DEBUG] Set to true to bypass filters and show raw data
+  // Filter states
+  selectedCategory: 'ALL',
+  selectedType: 'ALL',
+  searchKeyword: '',
 };
 
 const ICON_OPTIONS = [
@@ -103,6 +107,10 @@ const els = {
   debugStatus: $('debug-status'),
   debugCount: $('debug-count'),
   debugRawList: $('debug-raw-list'),
+  // Filter refs
+  filterCategory: $('filter-category'),
+  filterType: $('filter-type'),
+  filterKeyword: $('filter-keyword'),
 };
 
 /* =========================================================
@@ -371,9 +379,17 @@ function filterByMonth(data, year, month) {
 /* =========================================================
    Render
    ========================================================= */
-function renderSummary() {
-  const amount = state.totalAmount || 0;
-  const count = state.totalCount || 0;
+function renderSummary(filtered) {
+  let count = 0;
+  let amount = 0;
+
+  if (state.selectedCategory === 'ALL' && state.selectedType === 'ALL' && !state.searchKeyword) {
+    count = state.totalCount || 0;
+    amount = state.totalAmount || 0;
+  } else {
+    count = filtered.length;
+    amount = filtered.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  }
 
   els.totalAmount.textContent = `$${amount.toLocaleString('zh-TW')}`;
   els.totalCount.textContent = `${count} 筆`;
@@ -388,18 +404,18 @@ function renderTransactionItem(item, originalIndex) {
 
   return `
     <div class="txn-card anim-slide-up">
-      <!-- 左側：圖示區 -->
-      <div class="txn-icon-wrap">
+      <!-- 左側：圖示區 (固定寬度) -->
+      <div class="txn-left">
         <div class="txn-icon">${icon}</div>
       </div>
 
-      <!-- 中間：資訊區 -->
-      <div class="txn-info-wrap">
+      <!-- 中間：資訊區 (彈性寬度，店名省略) -->
+      <div class="txn-center">
         <div class="txn-merchant">${item?.merchant || '未辨識店家'}</div>
         <div class="txn-meta">
-          <span class="meta-item txn-date">${formatTxnDate(item?.txn_date || item?.created_at)}</span>
+          <span class="txn-date">${formatTxnDate(item?.txn_date || item?.created_at)}</span>
           <span class="meta-dot"></span>
-          <span class="meta-item txn-bank">${item?.bank || ''} ${item?.card || ''}</span>
+          <span class="txn-bank">${item?.bank || ''} ${item?.card || ''}</span>
           <span class="meta-dot"></span>
           <span class="txn-category">${category}</span>
           <span class="txn-type-label ${amountCls}">${item?.type === 'refund' ? '退款' : '支出'}</span>
@@ -411,19 +427,18 @@ function renderTransactionItem(item, originalIndex) {
         ` : ''}
       </div>
 
-      <!-- 右側：金額區 -->
-      <div class="txn-amount-wrap">
+      <!-- 右側：金額區 (固定寬度) -->
+      <div class="txn-right">
         <div class="txn-amount ${amountCls}">${amountStr}</div>
         <div class="txn-currency">${item?.currency || 'TWD'}</div>
       </div>
 
-      <!-- 操作區 -->
-      <div class="txn-action-wrap">
-        <button class="btn-txn-edit" onclick="openEditModal(${originalIndex})" title="編輯">🖋️</button>
-      </div>
+      <!-- 編輯按鈕 (Absolute 定位) -->
+      <button class="btn-txn-edit" onclick="openEditModal(${originalIndex})" title="編輯">🖋️</button>
     </div>
   `;
 }
+
 
 function renderTxnList(filtered) {
   els.txnList.innerHTML = '';
@@ -478,19 +493,32 @@ function renderDebugView(data) {
 function render() {
   els.monthLabel.textContent = formatMonthLabel(state.year, state.month);
 
-  // [DEBUG] Bypass month filter if DEBUG_MODE is on
-  let filtered;
-  if (state.DEBUG_MODE) {
-    console.warn('[DEBUG] Month filtering is currently bypassed.');
-    filtered = state.allData;
-  } else {
-    filtered = filterByMonth(state.allData, state.year, state.month);
+  let filtered = state.DEBUG_MODE ? state.allData : filterByMonth(state.allData, state.year, state.month);
+
+  if (state.selectedCategory !== 'ALL') {
+    filtered = filtered.filter(item => {
+      const cat = item.category || getCategory(item.merchant || '');
+      return cat === state.selectedCategory;
+    });
+  }
+
+  if (state.selectedType !== 'ALL') {
+    filtered = filtered.filter(item => item.type === state.selectedType);
+  }
+
+  if (state.searchKeyword.trim() !== '') {
+    const kw = state.searchKeyword.trim().toLowerCase();
+    filtered = filtered.filter(item => {
+      const merchant = (item.merchant || '').toLowerCase();
+      const note = (item.note || '').toLowerCase();
+      return merchant.includes(kw) || note.includes(kw);
+    });
   }
 
   // Update debugging view
   renderDebugView(state.allData);
 
-  renderSummary();
+  renderSummary(filtered);
   renderTxnList(filtered);
 }
 
@@ -653,6 +681,11 @@ els.btnRefresh.addEventListener('click', () => { fetchData(); });
 els.btnPrev.addEventListener('click', () => { goPrevMonth(); });
 els.btnNext.addEventListener('click', () => { goNextMonth(); });
 
+// Filter Listeners
+els.filterCategory.addEventListener('change', (e) => { state.selectedCategory = e.target.value; render(); });
+els.filterType.addEventListener('change', (e) => { state.selectedType = e.target.value; render(); });
+els.filterKeyword.addEventListener('input', (e) => { state.searchKeyword = e.target.value; render(); });
+
 // Modal Listeners
 els.btnClose.addEventListener('click', closeEditModal);
 els.btnCancel.addEventListener('click', closeEditModal);
@@ -678,7 +711,7 @@ function init() {
   updateNavButtons();
   initIconGrid();
 
-  if (isDefaultUrl(API_GET_URL)) {
+  if (isDefaultUrl(API_BASE_URL)) {
     const notice = document.createElement('div');
     notice.style.cssText = `
       background:#1a1a28; border-bottom:3px solid #000; color:#eab308;
