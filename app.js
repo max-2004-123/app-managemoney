@@ -4,7 +4,7 @@
    替換此處的 API_URL 為你的 Apps Script Web App 網址
    Replace API_URL with your Apps Script Web App URL
    ========================================================= */
-const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbwD9LJiNBUlWzERwUWUBHebDwM-yS_chjhf8K_fAsEYPoDm0Gx78PNqJlRkf93bIUfx/exec';
+const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbwy5deZZZI7huj8bfKUWYBZx6kCuCX6C1keRoB1mrfV1JiPSsTCBt8TjMIXAzIBXF8T/exec';
 const API_KEY = 'sk_7fA9xK3LmP2Qz8RwYvT6N1cB';
 const API_POST_URL = `${API_BASE_URL}?key=${API_KEY}`;
 
@@ -111,6 +111,17 @@ const els = {
   filterCategory: $('filter-category'),
   filterType: $('filter-type'),
   filterKeyword: $('filter-keyword'),
+  // Add refs
+  btnAddTxn: $('btn-add-txn'),
+  addModal: $('add-modal'),
+  addMerchant: $('add-merchant'),
+  addAmount: $('add-amount'),
+  addDate: $('add-date'),
+  addCategory: $('add-category'),
+  addNote: $('add-note'),
+  btnAddSave: $('btn-add-save'),
+  btnAddCancel: $('btn-add-cancel'),
+  btnAddClose: $('btn-add-close'),
 };
 
 /* =========================================================
@@ -254,6 +265,21 @@ function closeEditModal() {
   state.selectedIcon = null;
 }
 
+function openAddModal() {
+  els.addMerchant.value = '';
+  els.addAmount.value = '';
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  els.addDate.value = now.toISOString().slice(0, 16);
+  els.addCategory.value = '餐飲';
+  els.addNote.value = '';
+  els.addModal.classList.remove('hidden');
+}
+
+function closeAddModal() {
+  els.addModal.classList.add('hidden');
+}
+
 async function saveEdit() {
   const index = state.editingTxnIndex;
   if (index === -1) return;
@@ -366,6 +392,69 @@ async function saveTransactionEdit(txn) {
   }
 }
 
+async function saveAddTransaction() {
+  const merchant = els.addMerchant.value.trim();
+  const amount = parseFloat(els.addAmount.value);
+  const dateStr = els.addDate.value;
+  const category = els.addCategory.value;
+  const note = els.addNote.value.trim();
+
+  if (!merchant) { showError('請輸入店家名稱'); return; }
+  if (isNaN(amount)) { showError('請輸入有效金額'); return; }
+  if (!dateStr) { showError('請選擇日期時間'); return; }
+
+  const d = new Date(dateStr);
+  const formattedDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:00`;
+
+  const newTxn = {
+    email_id: 'manual_' + Date.now(),
+    merchant,
+    amount,
+    txn_date: formattedDate,
+    category,
+    note,
+    type: 'expense'
+  };
+
+  const originalBtnText = els.btnAddSave.textContent;
+  els.btnAddSave.textContent = 'SAVING...';
+  els.btnAddSave.classList.add('loading');
+  els.btnAddSave.disabled = true;
+
+  try {
+    if (isDefaultUrl(API_POST_URL)) {
+      console.log('[Mock API] Simulating ADD success...', newTxn);
+      await new Promise(r => setTimeout(r, 800));
+    } else {
+      const requestUrl = buildGetUrl(state.year, state.month, 100);
+      const res = await fetch(requestUrl, {
+        method: 'POST',
+        body: JSON.stringify(newTxn)
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (e) {
+        throw new Error('API 回傳格式錯誤 (非 JSON)');
+      }
+      if (!result.ok) throw new Error(result.error || '後端新增失敗');
+    }
+
+    closeAddModal();
+    fetchData(); // 成功後重新讀取
+  } catch (err) {
+    console.error('[saveAddTransaction] failed:', err);
+    showError('新增失敗：' + err.message);
+  } finally {
+    els.btnAddSave.textContent = originalBtnText;
+    els.btnAddSave.classList.remove('loading');
+    els.btnAddSave.disabled = false;
+  }
+}
+
 /* =========================================================
    Filtering by month
    ========================================================= */
@@ -403,20 +492,17 @@ function renderTransactionItem(item, originalIndex) {
   const category = item?.category || getCategory(item?.merchant || '');
 
   return `
-    <div class="txn-card anim-slide-up">
+    <div class="txn-card anim-slide-up" data-index="${originalIndex}">
       <!-- 左側：圖示區 (固定寬度) -->
       <div class="txn-left">
         <div class="txn-icon">${icon}</div>
       </div>
 
-      <!-- 中間：資訊區 (彈性寬度，店名省略) -->
+      <!-- 中間：資訊區 (彈性寬度) -->
       <div class="txn-center">
         <div class="txn-merchant">${item?.merchant || '未辨識店家'}</div>
         <div class="txn-meta">
           <span class="txn-date">${formatTxnDate(item?.txn_date || item?.created_at)}</span>
-          <span class="meta-dot"></span>
-          <span class="txn-bank">${item?.bank || ''} ${item?.card || ''}</span>
-          <span class="meta-dot"></span>
           <span class="txn-category">${category}</span>
           <span class="txn-type-label ${amountCls}">${item?.type === 'refund' ? '退款' : '支出'}</span>
         </div>
@@ -427,14 +513,13 @@ function renderTransactionItem(item, originalIndex) {
         ` : ''}
       </div>
 
-      <!-- 右側：金額區 (固定寬度) -->
-      <div class="txn-right">
-        <div class="txn-amount ${amountCls}">${amountStr}</div>
-        <div class="txn-currency">${item?.currency || 'TWD'}</div>
+      <!-- 右側：金額與操作區 (固定寬度) -->
+      <div class="txn-right-side">
+        <div class="txn-amount-group" data-action="quick-edit">
+          <div class="txn-amount ${amountCls}">${amountStr}</div>
+          <div class="txn-currency">${item?.currency || 'TWD'}</div>
+        </div>
       </div>
-
-      <!-- 編輯按鈕 (Absolute 定位) -->
-      <button class="btn-txn-edit" onclick="openEditModal(${originalIndex})" title="編輯">🖋️</button>
     </div>
   `;
 }
@@ -611,6 +696,14 @@ async function fetchData() {
   } finally {
     state.loading = false;
     setLoading(false);
+    hideLoadingScreen();
+  }
+}
+
+function hideLoadingScreen() {
+  const loadingScreen = document.getElementById('loadingScreen');
+  if (loadingScreen) {
+    loadingScreen.classList.add('hidden');
   }
 }
 
@@ -690,8 +783,15 @@ els.filterKeyword.addEventListener('input', (e) => { state.searchKeyword = e.tar
 els.btnClose.addEventListener('click', closeEditModal);
 els.btnCancel.addEventListener('click', closeEditModal);
 els.btnSave.addEventListener('click', saveEdit);
+
+if (els.btnAddTxn) els.btnAddTxn.addEventListener('click', openAddModal);
+if (els.btnAddClose) els.btnAddClose.addEventListener('click', closeAddModal);
+if (els.btnAddCancel) els.btnAddCancel.addEventListener('click', closeAddModal);
+if (els.btnAddSave) els.btnAddSave.addEventListener('click', saveAddTransaction);
+
 window.addEventListener('click', (e) => {
   if (e.target === els.editModal) closeEditModal();
+  if (e.target === els.addModal) closeAddModal();
 });
 
 // Pull-to-refresh
@@ -705,11 +805,89 @@ document.addEventListener('touchend', e => {
 }, { passive: true });
 
 /* =========================================================
+   Interaction: Long Press & Quick Edit
+   ========================================================= */
+let pressTimer = null;
+
+function setupTransactionInteractions() {
+  const container = els.txnList;
+  if (!container) return;
+
+  const startPress = (e) => {
+    const card = e.target.closest('.txn-card');
+    if (!card || e.button === 2) return; // 排除右鍵
+
+    // If clicking quick-edit zone, don't start long-press timer
+    if (e.target.closest('[data-action="quick-edit"]')) return;
+
+    const index = card.dataset.index;
+    card.classList.add('pressing');
+
+    if (pressTimer) clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => {
+      card.classList.remove('pressing');
+      if (navigator.vibrate) navigator.vibrate(40); // Haptic feedback
+      openEditModal(parseInt(index));
+      pressTimer = null;
+    }, 500);
+  };
+
+  const cancelPress = (e) => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+    const card = e.target.closest('.txn-card');
+    if (card) card.classList.remove('pressing');
+  };
+
+  // Touch handling
+  let lastTouchY = 0;
+  container.addEventListener('touchstart', (e) => {
+    lastTouchY = e.touches[0].clientY;
+    startPress(e);
+  }, { passive: true });
+
+  container.addEventListener('touchmove', (e) => {
+    const currentY = e.touches[0].clientY;
+    if (Math.abs(currentY - lastTouchY) > 10) cancelPress(e); // Cancel on scroll
+  }, { passive: true });
+
+  container.addEventListener('touchend', cancelPress);
+  container.addEventListener('touchcancel', cancelPress);
+
+  // Mouse handling
+  container.addEventListener('mousedown', startPress);
+  container.addEventListener('mouseup', cancelPress);
+  container.addEventListener('mouseleave', cancelPress);
+
+  // Prevent context menu to ensure long-press works reliably on mobile
+  container.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('.txn-card')) e.preventDefault();
+  });
+
+  // Quick edit on amount click
+  container.addEventListener('click', (e) => {
+    const quickEdit = e.target.closest('[data-action="quick-edit"]');
+    if (quickEdit) {
+      e.stopPropagation();
+      const card = quickEdit.closest('.txn-card');
+      const index = card.dataset.index;
+      if (navigator.vibrate) navigator.vibrate(20);
+      openEditModal(parseInt(index));
+    }
+  });
+}
+
+
+/* =========================================================
    Init
    ========================================================= */
 function init() {
   updateNavButtons();
   initIconGrid();
+  setupTransactionInteractions();
+
 
   if (isDefaultUrl(API_BASE_URL)) {
     const notice = document.createElement('div');
@@ -725,4 +903,6 @@ function init() {
   fetchData();
 }
 
-init();
+window.onload = () => {
+  init();
+};

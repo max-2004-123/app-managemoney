@@ -675,7 +675,7 @@ body {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   max-width: 100%;
   overflow-x: auto;
   scrollbar-width: none; /* Firefox */
@@ -758,10 +758,17 @@ body {
 }
 
 /* Amount — battle power number */
-.txn-right {
-  width: 95px;
+.txn-right-side {
+  width: 100px;
   flex-shrink: 0;
   text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.txn-amount-group {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -790,33 +797,29 @@ body {
   letter-spacing: 2px;
 }
 
-/* Edit button - absolute positioning */
-.btn-txn-edit {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 28px;
-  height: 28px;
+/* Amount group — interactivity indicate */
+.txn-amount-group {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-panel);
-  border: 1px solid var(--neon-purple);
-  color: var(--text-white);
-  border-radius: 4px;
-  font-size: 14px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
   cursor: pointer;
-  z-index: 5;
-  opacity: 0.5;
   transition: all var(--transition);
+  padding: 4px;
+  margin: -4px;
+  border-radius: 4px;
 }
 
-.btn-txn-edit:hover {
-  opacity: 1;
-  background: var(--neon-purple);
+.txn-amount-group:hover .txn-amount {
   color: #fff;
-  transform: scale(1.1);
+  text-shadow: 0 0 10px var(--neon-cyan);
 }
+
+.txn-amount-group:active {
+  transform: translateY(2px);
+  background: rgba(168, 85, 247, 0.1);
+}
+
 
 /* ================================================================
    EMPTY STATE
@@ -993,22 +996,36 @@ body {
    ================================================================ */
 /* ======== REFACTORED TXN CARD ======== */
 .txn-card {
+  position: relative;
   background: var(--bg-card);
   border: var(--border-thick);
-  padding: 12px 14px;
+  padding: 14px 16px;
   display: flex;
-  align-items: center;
+  align-items: center; /* Back to center for better balance without button */
   gap: 12px;
   box-shadow: var(--shadow-hard);
-  transition: all var(--transition);
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+              background 0.2s, box-shadow 0.2s;
   overflow: hidden;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
+  user-select: none; /* Prevent text selection during long press */
+  -webkit-touch-callout: none; /* Prevent default touch menu on iOS */
+}
+
+.txn-card.pressing {
+  transform: scale(0.96);
+  background: var(--bg-card-hover);
+  box-shadow: 2px 2px 0 #000, 0 0 20px var(--accent-glow);
 }
 
 .txn-card:hover {
   background: var(--bg-card-hover);
   transform: translateX(4px) translateY(-2px);
   box-shadow: var(--shadow-hard), 0 0 15px var(--accent-glow);
+}
+
+.txn-card.pressing:hover {
+  transform: scale(0.96); /* Override hover transform when pressing */
 }
 
 /* Left: Icon Area (Fixed) */
@@ -1356,4 +1373,164 @@ body {
   background: #555;
   transform: translate(-2px, -2px);
 }
+
+/* ================================================================
+   CYBERPUNK LOADING SCREEN (DASHBOARD STYLE)
+   ================================================================ */
+#loadingScreen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-dark);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+  overflow: hidden;
+}
+
+#loadingScreen.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.loading-bg-deco {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.manga-loading-panel {
+  position: relative;
+  z-index: 10;
+  width: calc(100% - 40px);
+  max-width: 400px;
+  background: var(--bg-panel);
+  border: 2px solid var(--neon-purple);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.2), inset 0 0 10px rgba(168, 85, 247, 0.1);
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: loadingPanelAppearing 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes loadingPanelAppearing {
+  from { opacity: 0; transform: scale(0.9) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.panel-accent-top {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(to right, var(--neon-purple), var(--neon-cyan));
+}
+
+.loading-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.loading-icon-wrap {
+  width: 48px;
+  height: 48px;
+  background: #000;
+  border: 2px solid var(--neon-purple);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--neon-purple);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.loading-title-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.loading-title-main {
+  font-family: var(--font-title);
+  font-size: 24px;
+  color: #fff;
+  letter-spacing: 1px;
+  margin: 0;
+}
+
+.loading-title-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--neon-cyan);
+  letter-spacing: 2px;
+}
+
+.loading-divider {
+  height: 1px;
+  background: linear-gradient(to right, var(--neon-purple) 0%, transparent 100%);
+  opacity: 0.3;
+}
+
+.loading-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.loading-status {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-light);
+  margin: 0;
+}
+
+/* Cyber Loading Bar */
+.cyber-loading-bar {
+  height: 6px;
+  background: #000;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.bar-progress {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 40%;
+  background: var(--neon-purple);
+  box-shadow: 0 0 10px var(--neon-purple);
+  animation: barSlide 2s infinite ease-in-out;
+}
+
+@keyframes barSlide {
+  0% { left: -40%; }
+  50% { left: 100%; }
+  100% { left: -40%; }
+}
+
+.panel-accent-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.accent-code {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-muted);
+}
+
+.accent-dots {
+  color: var(--neon-purple);
+  animation: dotsBlink 1s infinite alternate;
+}
+
+@keyframes dotsBlink {
+  from { opacity: 0.2; }
+  to { opacity: 1; text-shadow: 0 0 5px var(--neon-purple); }
+}
+
 

@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>消費紀錄 // EXPENSE LOG</title>
+  <title>再亂花錢就等死</title>
   <meta name="description" content="信用卡消費紀錄查詢 — 漫畫風格戰鬥面板" />
 
   <!-- PWA & Favicon -->
@@ -24,6 +24,40 @@
 </head>
 
 <body>
+  <!-- ======== FULL SCREEN LOADING ======== -->
+  <div id="loadingScreen">
+    <div class="loading-bg-deco">
+      <div class="speed-lines"></div>
+      <div class="halftone-overlay"></div>
+    </div>
+    
+    <div class="manga-loading-panel">
+      <div class="panel-accent-top"></div>
+      <div class="loading-header">
+        <div class="loading-icon-wrap">⚡</div>
+        <div class="loading-title-group">
+          <h1 class="loading-title-main">消費紀錄</h1>
+          <span class="loading-title-sub">EXPENSE LOG</span>
+        </div>
+      </div>
+      
+      <div class="loading-divider"></div>
+      
+      <div class="loading-body">
+        <p class="loading-status">同步交易資料中...</p>
+        <div class="cyber-loading-bar">
+          <div class="bar-progress"></div>
+          <div class="bar-glitch"></div>
+        </div>
+      </div>
+      
+      <div class="panel-accent-bottom">
+        <span class="accent-code">SYS_BOOT_SEQUENCE // v2.0</span>
+        <span class="accent-dots">...</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Manga background decorations -->
   <div class="bg-deco">
     <div class="speed-lines"></div>
@@ -48,15 +82,26 @@
             <span class="title-sub">EXPENSE LOG</span>
           </div>
         </div>
-        <button id="btn-refresh" class="btn-refresh" title="同步資料">
-          <svg id="refresh-icon" class="refresh-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2.5">
-            <polyline points="23 4 23 10 17 10" />
-            <polyline points="1 20 1 14 7 14" />
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-          </svg>
-          <span class="btn-refresh-label">SYNC</span>
-        </button>
+        <div class="header-actions" style="display: flex; gap: 8px;">
+          <button id="btn-add-txn" class="btn-refresh" style="color: var(--neon-cyan); border-color: var(--neon-cyan);"
+            title="新增交易">
+            <svg class="refresh-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              style="width: 20px; height: 20px;">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span class="btn-refresh-label" style="display:none;">ADD</span>
+          </button>
+          <button id="btn-refresh" class="btn-refresh" title="同步資料">
+            <svg id="refresh-icon" class="refresh-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5">
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            <span class="btn-refresh-label">SYNC</span>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -176,6 +221,61 @@
     <div id="error-toast" class="error-toast hidden" role="alert">
       <span class="toast-icon">💥</span>
       <span id="error-msg" class="toast-msg">載入失敗，請稍後再試</span>
+    </div>
+
+    <!-- ======== ADD MODAL ======== -->
+    <div id="add-modal" class="edit-modal hidden" role="dialog" aria-labelledby="add-modal-title">
+      <div class="modal-backdrop"></div>
+      <div class="modal-container anim-pop-in">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <div class="modal-icon-preview" style="border-color: var(--neon-green)">➕</div>
+            <h2 id="add-modal-title" class="modal-title">新增交易 // ADD</h2>
+          </div>
+          <button id="btn-add-close" class="btn-modal-close">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="input-group">
+            <label class="input-label" for="add-merchant">店家名稱 / MERCHANT</label>
+            <input type="text" id="add-merchant" class="manga-input" placeholder="輸入商家名稱...">
+          </div>
+
+          <div class="input-row">
+            <div class="input-group flex-1">
+              <label class="input-label" for="add-amount">金額 / AMOUNT</label>
+              <input type="number" id="add-amount" class="manga-input" placeholder="0.00">
+            </div>
+            <div class="input-group flex-1">
+              <label class="input-label" for="add-category">分類 / CATEG</label>
+              <select id="add-category" class="manga-input manga-select"
+                style="height: 100%; border-radius: 0; appearance: none; background-color: var(--bg-dark);">
+                <option value="餐飲">餐飲</option>
+                <option value="購物">購物</option>
+                <option value="交通">交通</option>
+                <option value="訂閱">訂閱</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="add-date">日期時間 / DATE</label>
+            <input type="datetime-local" id="add-date" class="manga-input">
+          </div>
+
+          <div class="input-group">
+            <label class="input-label" for="add-note">備註 / NOTE</label>
+            <textarea id="add-note" class="manga-input manga-textarea" rows="2" placeholder="寫點什麼..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="btn-add-cancel" class="btn-manga-secondary">CANCEL</button>
+          <button id="btn-add-save" class="btn-manga-primary" style="background: var(--neon-green); color: #000;">ADD
+            TXN</button>
+        </div>
+      </div>
     </div>
 
     <!-- ======== EDIT MODAL ======== -->
