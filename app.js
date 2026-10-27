@@ -1,12 +1,10 @@
 /* =========================================================
    app.js — Credit Card Expense Tracker (MANGA EDITION)
    =========================================================
-   替換此處的 API_URL 為你的 Apps Script Web App 網址
-   Replace API_URL with your Apps Script Web App URL
+   API settings are entered in the settings dialog.
    ========================================================= */
-const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbwy5deZZZI7huj8bfKUWYBZx6kCuCX6C1keRoB1mrfV1JiPSsTCBt8TjMIXAzIBXF8T/exec';
-const API_KEY = 'sk_7fA9xK3LmP2Qz8RwYvT6N1cB';
-const API_POST_URL = `${API_BASE_URL}?key=${API_KEY}`;
+const API_BASE_URL = apiSettings.url;
+const API_KEY = apiSettings.key;
 
 function buildMonthParam(year, month) {
   return `${year}-${String(month).padStart(2, '0')}`;
@@ -14,30 +12,11 @@ function buildMonthParam(year, month) {
 
 function buildGetUrl(year, month, limit = 100) {
   const url = new URL(API_BASE_URL);
+  if (API_KEY) url.searchParams.set('key', API_KEY);
   url.searchParams.set('limit', String(limit));
   url.searchParams.set('month', buildMonthParam(year, month));
   return url.toString();
 }
-/* =========================================================
-   Mock data for development (used when API_URL is default)
-   ========================================================= */
-const MOCK_DATA = {
-  ok: true,
-  total_count: 8,
-  total_amount: 6936,
-  count: 8,
-  data: [
-    { email_id: 'm1', created_at: '2026-04-14 09:00:00', txn_date: '2026-04-14 08:30:00', bank: '國泰世華', card: '****1234', merchant: 'Uber Eats', amount: 325, currency: 'TWD', type: 'expense' },
-    { email_id: 'm2', created_at: '2026-04-13 14:22:00', txn_date: '2026-04-13 14:10:00', bank: '玉山銀行', card: '****5678', merchant: 'PX Mart 全聯福利中心', amount: 1028, currency: 'TWD', type: 'expense' },
-    { email_id: 'm3', created_at: '2026-04-12 20:05:00', txn_date: '2026-04-12 19:55:00', bank: '國泰世華', card: '****1234', merchant: 'Netflix', amount: 270, currency: 'TWD', type: 'expense' },
-    { email_id: 'm4', created_at: '2026-04-11 12:34:00', txn_date: '2026-04-11 12:20:00', bank: '中信銀行', card: '****9012', merchant: 'Family Mart 全家便利商店', amount: 145, currency: 'TWD', type: 'expense' },
-    { email_id: 'm5', created_at: '2026-04-10 09:00:00', txn_date: '2026-04-10 08:50:00', bank: '玉山銀行', card: '****5678', merchant: 'ibon 繳費', amount: 500, currency: 'TWD', type: 'expense' },
-    { email_id: 'm6', created_at: '2026-04-09 18:40:00', txn_date: '2026-04-09 18:30:00', bank: '國泰世華', card: '****1234', merchant: '麥當勞 McDonald\'s', amount: 198, currency: 'TWD', type: 'expense' },
-    { email_id: 'm7', created_at: '2026-04-08 11:00:00', txn_date: '2026-04-08 10:55:00', bank: '中信銀行', card: '****9012', merchant: 'Costco 好市多', amount: 3890, currency: 'TWD', type: 'expense' },
-    { email_id: 'm8', created_at: '2026-04-07 22:10:00', txn_date: '2026-04-07 22:05:00', bank: '玉山銀行', card: '****5678', merchant: 'Steam 遊戲儲值', amount: 560, currency: 'TWD', type: 'expense' },
-  ]
-};
-
 /* =========================================================
    State
    ========================================================= */
@@ -48,6 +27,8 @@ let state = {
   totalCount: 0,
   totalAmount: 0,
   lastSync: null,
+  incomplete: false,
+  syncFailed: false,
   loading: false,
   editingTxnIndex: -1, // Currently editing transaction index in state.allData
   selectedIcon: null,  // Currently selected custom icon in modal
@@ -289,7 +270,7 @@ async function saveEdit() {
   const note = els.editNote.value.trim();
 
   if (!merchant) { showError('請輸入店家名稱'); return; }
-  if (isNaN(amount)) { showError('請輸入有效金額'); return; }
+  if (!Number.isFinite(amount)) { showError('請輸入有效金額'); return; }
 
   // UI Feedback: Loading state
   const originalBtnText = els.btnSave.textContent;
@@ -307,23 +288,14 @@ async function saveEdit() {
     };
 
     // Background API call
-    console.log('[App] Saving transaction to backend...', txnToUpdate.email_id);
-    const result = await saveTransactionEdit(txnToUpdate);
+    await saveTransactionEdit(txnToUpdate);
 
-    if (result && result.ok && result.data) {
-      // 3. Update state with AUTHORITATIVE data from backend
-      updateTransactionInState(result.data);
-      console.log('[App] Local state updated with backend result.');
-    } else {
-      // Fallback: If no data returned but OK, just use what we have locally
-      state.allData[index] = txnToUpdate;
-    }
-
-    render();
     closeEditModal();
+    await fetchData();
   } catch (err) {
     console.error('[saveEdit] Failed:', err);
-    showError('儲存失敗：' + err.message);
+    await fetchData();
+    showError('儲存結果待確認：' + err.message + '。已嘗試同步，請核對紀錄後再操作。');
   } finally {
     // Reset button state
     els.btnSave.textContent = originalBtnText;
@@ -347,52 +319,16 @@ function updateTransactionInState(updatedItem) {
  * Official save function: POST to Google Apps Script
  */
 async function saveTransactionEdit(txn) {
-  // If it's a mock URL, simulate a successful update
-  if (isDefaultUrl(API_POST_URL)) {
-    console.log('[Mock API] Simulating POST success...');
-    await new Promise(r => setTimeout(r, 800));
-    return { ok: true, data: txn };
-  }
-
-  try {
-    const requestUrl = buildGetUrl(state.year, state.month, 100);
-
-    const res = await fetch(requestUrl, {
-      method: 'POST',
-      body: JSON.stringify({
-        email_id: txn.email_id,
-        merchant: txn.merchant,
-        amount: txn.amount,
-        note: txn.note,
-        custom_icon: txn.custom_icon
-      })
-    });
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    // GAS often returns HTML sometimes, handle carefully
-    const text = await res.text();
-    console.log('[API raw response]', text);
-
-    let result;
-    try {
-      result = JSON.parse(text);
-    } catch (e) {
-      throw new Error('API 回傳格式錯誤 (非 JSON)');
-    }
-
-    if (!result.ok) {
-      throw new Error(result.error || '後端更新失敗');
-    }
-
-    return result;
-  } catch (err) {
-    console.error('[API POST] failed:', err);
-    throw err;
-  }
+  if (!API_BASE_URL) { openApiSettings(); throw new Error('請先設定 API'); }
+  return requestApi(buildGetUrl(state.year, state.month), {
+    method: 'POST',
+    body: JSON.stringify({ email_id: txn.email_id, merchant: txn.merchant,
+      amount: txn.amount, note: txn.note, custom_icon: txn.custom_icon })
+  });
 }
 
 async function saveAddTransaction() {
+  if (!API_BASE_URL) { openApiSettings(); return; }
   const merchant = els.addMerchant.value.trim();
   const amount = parseFloat(els.addAmount.value);
   const dateStr = els.addDate.value;
@@ -400,10 +336,11 @@ async function saveAddTransaction() {
   const note = els.addNote.value.trim();
 
   if (!merchant) { showError('請輸入店家名稱'); return; }
-  if (isNaN(amount)) { showError('請輸入有效金額'); return; }
+  if (!Number.isFinite(amount)) { showError('請輸入有效金額'); return; }
   if (!dateStr) { showError('請選擇日期時間'); return; }
 
   const d = new Date(dateStr);
+  if (!Number.isFinite(d.getTime())) { showError('請輸入有效日期'); return; }
   const formattedDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:00`;
 
   const newTxn = {
@@ -422,32 +359,16 @@ async function saveAddTransaction() {
   els.btnAddSave.disabled = true;
 
   try {
-    if (isDefaultUrl(API_POST_URL)) {
-      console.log('[Mock API] Simulating ADD success...', newTxn);
-      await new Promise(r => setTimeout(r, 800));
-    } else {
-      const requestUrl = buildGetUrl(state.year, state.month, 100);
-      const res = await fetch(requestUrl, {
-        method: 'POST',
-        body: JSON.stringify(newTxn)
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = await res.text();
-      let result;
-      try {
-        result = JSON.parse(text);
-      } catch (e) {
-        throw new Error('API 回傳格式錯誤 (非 JSON)');
-      }
-      if (!result.ok) throw new Error(result.error || '後端新增失敗');
-    }
+    await requestApi(buildGetUrl(state.year, state.month), {
+      method: 'POST', body: JSON.stringify(newTxn)
+    });
 
     closeAddModal();
-    fetchData(); // 成功後重新讀取
+    await fetchData(); // 成功後重新讀取
   } catch (err) {
     console.error('[saveAddTransaction] failed:', err);
-    showError('新增失敗：' + err.message);
+    await fetchData();
+    showError('新增結果待確認：' + err.message + '。已嘗試同步，請核對紀錄，避免重複新增。');
   } finally {
     els.btnAddSave.textContent = originalBtnText;
     els.btnAddSave.classList.remove('loading');
@@ -485,6 +406,12 @@ function renderSummary(filtered) {
   els.lastSync.textContent = formatSyncTime(state.lastSync);
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[char]));
+}
+
 function renderTransactionItem(item, originalIndex) {
   const icon = getMerchantIcon(item);
   const amountCls = getAmountClass(item?.type || 'expense');
@@ -500,15 +427,15 @@ function renderTransactionItem(item, originalIndex) {
 
       <!-- 中間：資訊區 (彈性寬度) -->
       <div class="txn-center">
-        <div class="txn-merchant">${item?.merchant || '未辨識店家'}</div>
+        <div class="txn-merchant">${escapeHtml(item?.merchant || '未辨識店家')}</div>
         <div class="txn-meta">
-          <span class="txn-date">${formatTxnDate(item?.txn_date || item?.created_at)}</span>
-          <span class="txn-category">${category}</span>
+          <span class="txn-date">${escapeHtml(formatTxnDate(item?.txn_date || item?.created_at))}</span>
+          <span class="txn-category">${escapeHtml(category)}</span>
           <span class="txn-type-label ${amountCls}">${item?.type === 'refund' ? '退款' : '支出'}</span>
         </div>
         ${item?.note ? `
           <div class="txn-note-row">
-            <span class="txn-note">${item.note}</span>
+            <span class="txn-note">${escapeHtml(item.note)}</span>
           </div>
         ` : ''}
       </div>
@@ -517,7 +444,7 @@ function renderTransactionItem(item, originalIndex) {
       <div class="txn-right-side">
         <div class="txn-amount-group" data-action="quick-edit">
           <div class="txn-amount ${amountCls}">${amountStr}</div>
-          <div class="txn-currency">${item?.currency || 'TWD'}</div>
+          <div class="txn-currency">${escapeHtml(item?.currency || 'TWD')}</div>
         </div>
       </div>
     </div>
@@ -565,9 +492,9 @@ function renderDebugView(data) {
   if (data.length > 0) {
     els.debugRawList.innerHTML = data.map((item, i) => `
       <div style="border-bottom: 1px solid #ccc; font-size: 10px; padding: 2px 0;">
-        [${i}] ${item.txn_date || '??-??'} | <b>${item.merchant || '(無店家)'}</b> | 
-        ${item.amount !== undefined ? '$' + item.amount : '(無金額)'} | 
-        ${item.category || '(無分類)'}
+        [${i}] ${escapeHtml(item.txn_date || '??-??')} | <b>${escapeHtml(item.merchant || '(無店家)')}</b> | 
+        ${escapeHtml(item.amount !== undefined ? '$' + item.amount : '(無金額)')} | 
+        ${escapeHtml(item.category || '(無分類)')}
       </div>
     `).join('');
   } else {
@@ -603,6 +530,17 @@ function render() {
   // Update debugging view
   renderDebugView(state.allData);
 
+  let notice = document.getElementById('data-completeness');
+  if (!notice) {
+    notice = document.createElement('p');
+    notice.id = 'data-completeness';
+    notice.setAttribute('role', 'status');
+    notice.style.cssText = 'padding:12px;color:#fcd34d;line-height:1.6';
+    els.txnList.before(notice);
+  }
+  notice.textContent = state.syncFailed
+    ? '同步失敗：目前顯示的是先前資料，請重新同步確認。'
+    : state.incomplete ? `目前只載入 ${state.allData.length} 筆，後端限制回傳數量；搜尋與分類統計僅涵蓋已載入資料。` : '';
   renderSummary(filtered);
   renderTxnList(filtered);
 }
@@ -610,9 +548,14 @@ function render() {
 /* =========================================================
    API / Data loading
    ========================================================= */
-const isDefaultUrl = url => !url || url.includes('replace-with-your-own-key');
 
 async function fetchData() {
+  if (!API_BASE_URL) {
+    setLoading(false);
+    document.getElementById('loadingScreen')?.classList.add('hidden');
+    openApiSettings();
+    return;
+  }
   if (state.loading) return;
   state.loading = true;
 
@@ -620,65 +563,13 @@ async function fetchData() {
   if (els.debugStatus) els.debugStatus.textContent = 'Status: Fetching from API...';
 
   try {
-    let json;
-    const requestUrl = buildGetUrl(state.year, state.month, 100);
-
-    console.group('🚀 API Fetching Debug');
-    console.log('API request URL:', requestUrl);
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    try {
-      const res = await fetch(requestUrl, {
-        method: 'GET',
-        cache: 'no-store',
-        redirect: 'follow',
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      console.log(`Response Status: ${res.status} ${res.statusText}`);
-      console.log(`Final URL: ${res.url}`);
-      console.log(`Content-Type: ${res.headers.get('content-type') || '(none)'}`);
-
-      const text = await res.text();
-      console.log(`Raw text preview (${text.length} chars):`, text.substring(0, 300));
-
-      try {
-        json = JSON.parse(text);
-      } catch (parseErr) {
-        console.log('================ RAW RESPONSE START ================');
-        console.log(text);
-        console.log('================ RAW RESPONSE END ==================');
-
-        if (text.trim().toLowerCase().startsWith('<!doctype html>') || text.includes('<html')) {
-          throw new Error('API returned HTML instead of JSON. Possible Apps Script auth/permission page.');
-        } else if (text.trim() === '') {
-          throw new Error('API returned an empty response.');
-        } else {
-          throw new Error('API returned invalid JSON.');
-        }
-      }
-    } catch (apiErr) {
-      console.warn('Live API failed:', apiErr);
-      if (apiErr.name === 'AbortError') {
-        throw new Error('API request timed out after 10 seconds.');
-      }
-      throw apiErr;
-    }
-
-    console.log('Parsed JSON:', json);
-    console.groupEnd();
-
-    if (!json.ok) {
-      throw new Error(json.error || 'API returned ok: false');
-    }
-
+    const json = await readMonthData(limit => buildGetUrl(state.year, state.month, limit));
+    state.incomplete = json.incomplete;
     state.allData = Array.isArray(json.data) ? json.data : [];
     state.totalCount = Number(json.total_count || 0);
     state.totalAmount = Number(json.total_amount || 0);
     state.lastSync = new Date();
+    state.syncFailed = false;
 
     render();
 
@@ -686,8 +577,9 @@ async function fetchData() {
       els.debugStatus.textContent = `Status: Loaded ${state.allData.length} rows for ${buildMonthParam(state.year, state.month)}`;
     }
   } catch (err) {
+    state.syncFailed = true;
     console.error('[fetchData Error]', err);
-    console.groupEnd();
+
     showError(`載入失敗：${err.message}`);
     if (els.debugStatus) {
       els.debugStatus.textContent = `Status: Error - ${err.message}`;
@@ -734,6 +626,7 @@ function showError(msg) {
    Month navigation
    ========================================================= */
 function goPrevMonth() {
+  if (state.loading) return;
   state.month--;
   if (state.month < 1) {
     state.month = 12;
@@ -744,6 +637,7 @@ function goPrevMonth() {
 }
 
 function goNextMonth() {
+  if (state.loading) return;
   const now = new Date();
   if (
     state.year > now.getFullYear() ||
@@ -889,16 +783,7 @@ function init() {
   setupTransactionInteractions();
 
 
-  if (isDefaultUrl(API_BASE_URL)) {
-    const notice = document.createElement('div');
-    notice.style.cssText = `
-      background:#1a1a28; border-bottom:3px solid #000; color:#eab308;
-      font-size:11px; padding:8px 16px; text-align:center; font-weight:700;
-      font-family:'Noto Sans TC',sans-serif; letter-spacing:0.5px;
-    `;
-    notice.innerHTML = '⚡ <span style="color:#a855f7">DEMO MODE</span> — 請替換 app.js 中的 API_URL';
-    document.body.insertBefore(notice, document.getElementById('app'));
-  }
+
 
   fetchData();
 }

@@ -1534,3 +1534,17 @@ body {
 }
 
 
+
+/* API settings */
+.api-settings-button { position: relative; display: block; margin: 0 20px 14px auto; padding: 8px 12px; background: #1a1a28; color: #67e8f9; border: 2px solid #67e8f9; cursor: pointer; font: inherit; }
+.api-settings-dialog { margin: auto; width: min(480px, calc(100vw - 32px)); max-height: 90vh; overflow: auto; box-sizing: border-box; padding: 24px; background: #181824; color: #f4f4f5; border: 3px solid #a855f7; border-radius: 12px; font-family: 'Noto Sans TC', sans-serif; }
+.api-settings-dialog::backdrop { background: #000b; }
+.api-settings-dialog h2 { margin: 0 0 12px; }
+.api-settings-dialog p { margin: 12px 0; line-height: 1.6; }
+.api-settings-dialog label { display: block; margin: 18px 0 8px; }
+.api-settings-dialog input { box-sizing: border-box; width: 100%; padding: 12px; border: 1px solid #71717a; border-radius: 6px; background: #0f0f14; color: white; font-size: 16px; }
+.api-settings-hint { color: #b4b4c6; font-size: 13px; }
+#api-settings-error { color: #fda4af; }
+.api-settings-actions { display: flex; justify-content: flex-end; gap: 12px; }
+.api-settings-actions button { padding: 10px 16px; background: #282838; color: white; border: 1px solid #71717a; border-radius: 6px; cursor: pointer; font: inherit; }
+.api-settings-actions button[type=submit] { background: #7e22ce; border-color: #a855f7; }
