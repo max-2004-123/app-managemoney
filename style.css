@@ -1548,3 +1548,10 @@ body {
 .api-settings-actions { display: flex; justify-content: flex-end; gap: 12px; }
 .api-settings-actions button { padding: 10px 16px; background: #282838; color: white; border: 1px solid #71717a; border-radius: 6px; cursor: pointer; font: inherit; }
 .api-settings-actions button[type=submit] { background: #7e22ce; border-color: #a855f7; }
+.daily-panel { margin: 16px auto; padding: 18px; border: 2px solid var(--neon-cyan); background: #11151f; color: #fff; max-width: 800px; line-height: 1.7; }
+.daily-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.daily-heading h2 { font-size: 1.15rem; margin: 0; }
+.daily-heading small { font-size: .7rem; color: var(--neon-cyan); }
+.daily-heading input { color: #fff; background: #202534; border: 1px solid var(--neon-cyan); padding: 7px; color-scheme: dark; }
+.daily-panel p { margin: 8px 0 0; overflow-wrap: anywhere; }
+#daily-analysis { color: #aeeeff; }

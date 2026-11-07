@@ -29,6 +29,7 @@ let state = {
   lastSync: null,
   incomplete: false,
   syncFailed: false,
+  dailySummaries: [],
   loading: false,
   editingTxnIndex: -1, // Currently editing transaction index in state.allData
   selectedIcon: null,  // Currently selected custom icon in modal
@@ -542,7 +543,56 @@ function render() {
     ? '同步失敗：目前顯示的是先前資料，請重新同步確認。'
     : state.incomplete ? `目前只載入 ${state.allData.length} 筆，後端限制回傳數量；搜尋與分類統計僅涵蓋已載入資料。` : '';
   renderSummary(filtered);
+  renderDaily();
   renderTxnList(filtered);
+}
+
+function dailyTotals(data, date) {
+  const totals = Object.create(null);
+  for (const item of data) {
+    if (String(item.txn_date || item.created_at || '').slice(0, 10) !== date) continue;
+    if (item.amount === '' || item.amount == null) continue;
+    const amount = Number(item.amount);
+    if (!Number.isFinite(amount)) continue;
+    const currency = String(item.currency || 'TWD');
+    const group = totals[currency] ||= { count: 0, expense: 0, refund: 0, categories: Object.create(null) };
+    if (item.type === 'refund') group.refund += amount;
+    else if (!item.type || item.type === 'expense') {
+      group.count++;
+      group.expense += amount;
+      const category = item.category || getCategory(item.merchant || '');
+      group.categories[category] = (group.categories[category] || 0) + amount;
+    }
+  }
+  return totals;
+}
+
+function renderDaily() {
+  const input = $('daily-date');
+  const month = buildMonthParam(state.year, state.month);
+  input.min = month + '-01';
+  input.max = month + '-' + String(new Date(state.year, state.month, 0).getDate()).padStart(2, '0');
+  if (!input.value || !input.value.startsWith(month)) {
+    const now = new Date();
+    input.value = month === buildMonthParam(now.getFullYear(), now.getMonth() + 1)
+      ? month + '-' + String(now.getDate()).padStart(2, '0') : input.max;
+  }
+  const totals = dailyTotals(state.allData, input.value);
+  const entries = Object.entries(totals);
+  const money = n => Number(n.toFixed(2)).toLocaleString('zh-TW');
+  $('daily-totals').textContent = entries.length ? entries.map(([currency, g]) =>
+    `${currency} 支出 ${money(g.expense)}（${g.count} 筆）${g.refund ? `，退款 ${money(g.refund)}` : ''}`).join('；') : '當日沒有消費紀錄';
+  $('daily-categories').textContent = entries.map(([currency, g]) =>
+    Object.entries(g.categories).map(([category, amount]) => `${category} ${currency} ${money(amount)}`).join('、')).filter(Boolean).join('；');
+  const summary = state.dailySummaries.find(item => item.date === input.value);
+  const canonical = value => value && typeof value === 'object'
+    ? Object.keys(value).sort().map(key => [key, canonical(value[key])]) : value;
+  let current = false;
+  try { current = JSON.stringify(canonical(JSON.parse(summary.totals_json))) === JSON.stringify(canonical(totals)); } catch (_) { /* No valid saved snapshot. */ }
+  $('daily-analysis').textContent = summary?.analysis && current && !state.incomplete && !state.syncFailed
+    ? `AI 分析：${summary.analysis}（${summary.updated_at} 更新）`
+    : summary?.analysis && !current ? '交易已有變動，AI 分析將在下次同步時更新' : 'AI 分析尚未產生';
+  if (state.incomplete || state.syncFailed) $('daily-totals').textContent += '（資料可能不完整）';
 }
 
 /* =========================================================
@@ -566,6 +616,7 @@ async function fetchData() {
     const json = await readMonthData(limit => buildGetUrl(state.year, state.month, limit));
     state.incomplete = json.incomplete;
     state.allData = Array.isArray(json.data) ? json.data : [];
+    state.dailySummaries = Array.isArray(json.daily_summaries) ? json.daily_summaries : [];
     state.totalCount = Number(json.total_count || 0);
     state.totalAmount = Number(json.total_amount || 0);
     state.lastSync = new Date();
@@ -665,6 +716,7 @@ function updateNavButtons() {
    Event Listeners
    ========================================================= */
 els.btnRefresh.addEventListener('click', () => { fetchData(); });
+$('daily-date').addEventListener('change', renderDaily);
 els.btnPrev.addEventListener('click', () => { goPrevMonth(); });
 els.btnNext.addEventListener('click', () => { goNextMonth(); });
 
