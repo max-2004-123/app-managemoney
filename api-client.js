@@ -1,7 +1,7 @@
 /* Shared transport: timeout covers both headers and body. */
-async function requestApi(url, options = {}) {
+async function requestApi(url, options = {}, timeoutMs = 15000) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { ...options, signal: controller.signal });
     const text = await response.text();
@@ -12,7 +12,7 @@ async function requestApi(url, options = {}) {
     if (!result || result.ok !== true) throw new Error(result?.error || 'API 回報失敗');
     return result;
   } catch (error) {
-    if (error.name === 'AbortError') throw new Error('連線超過 15 秒，請稍後再試');
+    if (error.name === 'AbortError') throw new Error(`連線超過 ${timeoutMs / 1000} 秒，請稍後再試`);
     throw error;
   } finally { clearTimeout(timer); }
 }

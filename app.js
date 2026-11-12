@@ -30,6 +30,8 @@ let state = {
   incomplete: false,
   syncFailed: false,
   dailySummaries: [],
+  dailyReportTestEnabled: false,
+  dailyReportTesting: false,
   loading: false,
   editingTxnIndex: -1, // Currently editing transaction index in state.allData
   selectedIcon: null,  // Currently selected custom icon in modal
@@ -593,6 +595,31 @@ function renderDaily() {
     ? `AI 分析：${summary.analysis}（${summary.updated_at} 更新）`
     : summary?.analysis && !current ? '交易已有變動，AI 分析將在下次同步時更新' : 'AI 分析尚未產生';
   if (state.incomplete || state.syncFailed) $('daily-totals').textContent += '（資料可能不完整）';
+  const testButton = $('daily-test-button');
+  testButton.disabled = state.dailyReportTesting || state.syncFailed || !state.dailyReportTestEnabled || !API_KEY;
+  if (!state.dailyReportTesting) $('daily-test-status').textContent = !state.dailyReportTestEnabled
+    ? '請先更新 Apps Script 後端' : !API_KEY ? '請先設定後端 API Key' : '';
+}
+
+async function testDailyReport() {
+  if (state.dailyReportTesting || !state.dailyReportTestEnabled || !API_KEY) return;
+  const date = $('daily-date').value;
+  if (!date) { $('daily-test-status').textContent = '請先選擇日期'; return; }
+  state.dailyReportTesting = true;
+  $('daily-test-button').disabled = true;
+  $('daily-test-status').textContent = '正在產生報告，請稍候…';
+  try {
+    await requestApi(buildGetUrl(state.year, state.month), {
+      method: 'POST', body: JSON.stringify({ action: 'test_daily_report', date })
+    }, 90000);
+    await fetchData();
+    $('daily-test-status').textContent = state.syncFailed ? '已完成產生，但重新載入失敗；請稍後同步確認' : `${date} 報告已更新`;
+  } catch (err) {
+    $('daily-test-status').textContent = `測試未完成或結果待確認：${err.message}。請先同步查看再重試。`;
+  } finally {
+    state.dailyReportTesting = false;
+    $('daily-test-button').disabled = state.syncFailed || !state.dailyReportTestEnabled || !API_KEY;
+  }
 }
 
 /* =========================================================
@@ -617,6 +644,7 @@ async function fetchData() {
     state.incomplete = json.incomplete;
     state.allData = Array.isArray(json.data) ? json.data : [];
     state.dailySummaries = Array.isArray(json.daily_summaries) ? json.daily_summaries : [];
+    state.dailyReportTestEnabled = json.capabilities?.daily_report_test === true;
     state.totalCount = Number(json.total_count || 0);
     state.totalAmount = Number(json.total_amount || 0);
     state.lastSync = new Date();
@@ -717,6 +745,7 @@ function updateNavButtons() {
    ========================================================= */
 els.btnRefresh.addEventListener('click', () => { fetchData(); });
 $('daily-date').addEventListener('change', renderDaily);
+$('daily-test-button').addEventListener('click', testDailyReport);
 els.btnPrev.addEventListener('click', () => { goPrevMonth(); });
 els.btnNext.addEventListener('click', () => { goNextMonth(); });
 
